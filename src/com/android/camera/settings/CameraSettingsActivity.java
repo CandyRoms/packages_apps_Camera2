@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Bundle;
+import android.os.storage.StorageVolume;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
@@ -45,7 +46,6 @@ import com.android.camera.one.OneCameraModule;
 import com.android.camera.settings.PictureSizeLoader.PictureSizes;
 import com.android.camera.settings.SettingsUtil.SelectedVideoQualities;
 import com.android.camera.util.CameraSettingsActivityHelper;
-import com.android.camera.util.GoogleHelpHelper;
 import com.android.camera.util.Size;
 import com.android.camera2.R;
 import com.android.ex.camera2.portability.CameraAgentFactory;
@@ -139,7 +139,6 @@ public class CameraSettingsActivity extends FragmentActivity {
 
         public static final String PREF_CATEGORY_RESOLUTION = "pref_category_resolution";
         public static final String PREF_CATEGORY_ADVANCED = "pref_category_advanced";
-        public static final String PREF_LAUNCH_HELP = "pref_launch_help";
         private static final Log.Tag TAG = new Log.Tag("SettingsFragment");
         private static DecimalFormat sMegaPixelFormat = new DecimalFormat("##0.0");
         private String[] mCamcorderProfileNames;
@@ -147,9 +146,12 @@ public class CameraSettingsActivity extends FragmentActivity {
         private String mPrefKey;
         private boolean mHideAdvancedScreen;
         private boolean mGetSubPrefAsRoot = true;
+        private boolean mPreferencesRemoved = false;
 
         // Selected resolutions for the different cameras and sizes.
         private PictureSizes mPictureSizes;
+
+        private List<StorageVolume> mStorageVolumes;
 
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -190,6 +192,9 @@ public class CameraSettingsActivity extends FragmentActivity {
             // Load the camera sizes.
             loadSizes();
 
+            // Load storage volumes
+            loadStorageVolumeList();
+
             // Send loaded sizes to additional preferences.
             CameraSettingsActivityHelper.onSizesLoaded(this, mPictureSizes.backCameraSizes,
                     new ListPreferenceFiller() {
@@ -216,15 +221,17 @@ public class CameraSettingsActivity extends FragmentActivity {
                 setPreferenceScreenIntent(advancedScreen);
             }
 
-            Preference helpPref = findPreference(PREF_LAUNCH_HELP);
-            helpPref.setOnPreferenceClickListener(
-                    new OnPreferenceClickListener() {
-                        @Override
-                        public boolean onPreferenceClick(Preference preference) {
-                            new GoogleHelpHelper(activity).launchGoogleHelp();
-                            return true;
-                        }
-                    });
+            // Fill Storage preference
+            final Preference storagePreference = findPreference(Keys.KEY_STORAGE);
+            if (storagePreference != null) {
+                if (mStorageVolumes == null) {
+                    getPreferenceScreen().removePreference(storagePreference);
+                } else {
+                    setEntries(storagePreference);
+                    setSummary(storagePreference);
+                }
+            }
+
             getPreferenceScreen().getSharedPreferences()
                     .registerOnSharedPreferenceChangeListener(this);
         }
@@ -285,18 +292,19 @@ public class CameraSettingsActivity extends FragmentActivity {
         private void setVisibilities() {
             PreferenceGroup resolutions =
                     (PreferenceGroup) findPreference(PREF_CATEGORY_RESOLUTION);
-            if (mPictureSizes.backCameraSizes.isEmpty()) {
+            if ((mPictureSizes.backCameraSizes.isEmpty()) && !mPreferencesRemoved) {
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_PICTURE_SIZE_BACK));
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_VIDEO_QUALITY_BACK));
             }
-            if (mPictureSizes.frontCameraSizes.isEmpty()) {
+            if ((mPictureSizes.frontCameraSizes.isEmpty()) && !mPreferencesRemoved) {
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_PICTURE_SIZE_FRONT));
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_VIDEO_QUALITY_FRONT));
             }
+            mPreferencesRemoved = true;
         }
 
         /**
@@ -374,6 +382,8 @@ public class CameraSettingsActivity extends FragmentActivity {
                 setEntriesForSelection(mPictureSizes.videoQualitiesBack.orNull(), listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_VIDEO_QUALITY_FRONT)) {
                 setEntriesForSelection(mPictureSizes.videoQualitiesFront.orNull(), listPreference);
+            } else if (listPreference.getKey().equals(Keys.KEY_STORAGE)) {
+                setStorageEntriesForSelection(mStorageVolumes, listPreference);
             }
         }
 
@@ -453,6 +463,28 @@ public class CameraSettingsActivity extends FragmentActivity {
         }
 
         /**
+         * Sets the entries for the storage list preference.
+         *
+         * @param storageVolumes The storage volumes.
+         * @param preference The preference to set the entries for.
+         */
+        private void setStorageEntriesForSelection(List<StorageVolume> storageVolumes,
+                                                   ListPreference preference) {
+            if (storageVolumes == null) {
+                return;
+            }
+            String[] entries = new String[storageVolumes.size()];
+            String[] entryValues = new String[storageVolumes.size()];
+            for (int i = 0; i < storageVolumes.size(); i++) {
+                StorageVolume v = storageVolumes.get(i);
+                entries[i] = v.getDescription(getActivity());
+                entryValues[i] = v.getPath();
+            }
+            preference.setEntries(entries);
+            preference.setEntryValues(entryValues);
+        }
+
+        /**
          * Sets the summary for the given list preference.
          *
          * @param displayableSizes The human readable preferred sizes
@@ -498,6 +530,14 @@ public class CameraSettingsActivity extends FragmentActivity {
             }
             PictureSizeLoader loader = new PictureSizeLoader(getActivity().getApplicationContext());
             mPictureSizes = loader.computePictureSizes();
+        }
+
+        private void loadStorageVolumeList() {
+            mStorageVolumes = SettingsUtil.getMountedStorageVolumes();
+            if (mStorageVolumes.size() < 2) {
+                // Remove storage preference
+                mStorageVolumes = null;
+            }
         }
 
         /**

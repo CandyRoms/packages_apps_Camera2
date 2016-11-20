@@ -18,6 +18,8 @@ package com.android.camera.settings;
 
 import android.content.Context;
 
+import android.os.Environment;
+
 import com.android.camera.app.LocationManager;
 import com.android.camera.util.ApiHelper;
 import com.android.camera2.R;
@@ -81,6 +83,9 @@ public class Keys {
     public static final String KEY_SHOULD_SHOW_SETTINGS_BUTTON_CLING =
             "pref_should_show_settings_button_cling";
     public static final String KEY_HAS_SEEN_PERMISSIONS_DIALOGS = "pref_has_seen_permissions_dialogs";
+    public static final String KEY_POWER_SHUTTER = "pref_power_shutter";
+    public static final String KEY_MAX_BRIGHTNESS = "pref_max_brightness";
+    public static final String KEY_STORAGE = "pref_camera_storage_key";
 
     /**
      * Set some number of defaults for the defined keys.
@@ -180,6 +185,12 @@ public class Keys {
 
         settingsManager.setDefaults(KEY_SHOULD_SHOW_SETTINGS_BUTTON_CLING, true);
 
+        settingsManager.setDefaults(KEY_STORAGE,
+                Environment.getExternalStorageDirectory().toString(), null);
+        if (!settingsManager.isSet(SettingsManager.SCOPE_GLOBAL, KEY_STORAGE)) {
+            settingsManager.setToDefault(SettingsManager.SCOPE_GLOBAL, KEY_STORAGE);
+        }
+
     }
 
     /** Helper functions for some defined keys. */
@@ -222,6 +233,22 @@ public class Keys {
     public static boolean areGridLinesOn(SettingsManager settingsManager) {
         return settingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
                                           KEY_CAMERA_GRID_LINES);
+    }
+
+    /**
+     * Returns whether power shutter is set on.
+     */
+    public static boolean isPowerShutterOn(SettingsManager settingsManager) {
+        return settingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
+                KEY_POWER_SHUTTER);
+    }
+
+    /**
+     * Returns whether max brightness is set on.
+     */
+    public static boolean isMaxBrightnessOn(SettingsManager settingsManager) {
+        return settingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
+                KEY_MAX_BRIGHTNESS);
     }
 }
 

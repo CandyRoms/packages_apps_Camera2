@@ -808,7 +808,7 @@ public class VideoModule extends CameraModule
      */
     private static Point getDesiredPreviewSize(CameraCapabilities capabilities,
           CamcorderProfile profile, Point previewScreenSize) {
-        if (capabilities.getSupportedVideoSizes() == null) {
+        if (capabilities.getSupportedVideoSizes().size() == 0) {
             // Driver doesn't support separate outputs for preview and video.
             return new Point(profile.videoFrameWidth, profile.videoFrameHeight);
         }
@@ -1222,7 +1222,7 @@ public class VideoModule extends CameraModule
         // Used when emailing.
         String filename = title + convertOutputFormatToFileExt(outputFileFormat);
         String mime = convertOutputFormatToMimeType(outputFileFormat);
-        String path = Storage.DIRECTORY + '/' + filename;
+        String path = Storage.generateDirectory() + '/' + filename;
         String tmpPath = path + ".tmp";
         mCurrentVideoValues = new ContentValues(9);
         mCurrentVideoValues.put(Video.Media.TITLE, title);
